@@ -35,6 +35,13 @@ def webhooks(request):
         return HttpResponse("Invalid Request.", status=400)
 
     json = simplejson.loads(request.POST["json"])
+    
+    try:
+        # confirm the event came from stripe by requesting the event from their API
+        event = stripe.Event.retrieve(json.get("id"))
+    except stripe.InvalidRequestError:
+        # if the event does not exist, return a 400 error
+        return HttpResponse("Invalid Request.", status=400)
 
     if json["event"] == "recurring_payment_failed":
         zebra_webhook_recurring_payment_failed.send(sender=None, customer=_try_to_get_customer_from_customer_id(json["customer"]), full_json=json)
@@ -76,6 +83,13 @@ def webhooks_v2(request):
         event_json = simplejson.loads(request.raw_post_data)
     event_key = event_json['type'].replace('.', '_')
 
+    try:
+        # confirm the event came from stripe by requesting the event from their API
+        event = stripe.Event.retrieve(event_json.get("id"))
+    except stripe.InvalidRequestError:
+        # if the event does not exist, return a 400 error
+        return HttpResponse("Invalid Request.", status=400)
+        
     if event_key in WEBHOOK_MAP:
         WEBHOOK_MAP[event_key].send(sender=None, full_json=event_json)
 
